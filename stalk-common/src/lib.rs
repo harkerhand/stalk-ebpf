@@ -19,3 +19,44 @@ pub struct SysEnterExecveInfo {
     pub argv: *const *const core::ffi::c_char,
     pub envp: *const *const core::ffi::c_char,
 }
+
+#[repr(C)]
+pub struct RawReadEvent {
+    pub pid: u32,
+    pub gid: u32,
+    pub fd: u64,
+    pub count: usize,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct SysEnterReadInfo {
+    pub common_type: u16,
+    pub common_flags: u8,
+    pub common_preempt_count: u8,
+    pub common_pid: i32,
+    pub syscall_nr: i32,
+    pub padding: u32,
+    pub fd: u64,
+    pub buf: *const core::ffi::c_char,
+    pub count: usize,
+}
+
+#[repr(C)]
+pub struct RawReadEventExit {
+    pub pid: u32,
+    pub gid: u32,
+    pub ret: isize,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct SysExitReadInfo {
+    pub common_type: u16,
+    pub common_flags: u8,
+    pub common_preempt_count: u8,
+    pub common_pid: i32,
+    pub syscall_nr: i32,
+    pub padding: u32,
+    pub ret: isize,
+}

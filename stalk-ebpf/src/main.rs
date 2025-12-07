@@ -9,7 +9,10 @@ use aya_ebpf::{
     programs::TracePointContext,
 };
 use aya_log_ebpf::error;
-use stalk_common::{RawExecveEvent, SysEnterExecveInfo};
+use stalk_common::{
+    RawExecveEvent, RawReadEvent, RawReadEventExit, SysEnterExecveInfo, SysEnterReadInfo,
+    SysExitReadInfo,
+};
 
 #[map]
 static mut EXECVE_EVENTS: PerfEventArray<RawExecveEvent> = PerfEventArray::new(0);
@@ -58,6 +61,56 @@ fn try_stalk_execve(ctx: TracePointContext) -> Result<u32, u32> {
 
     unsafe {
         let event_map = &raw mut EXECVE_EVENTS;
+        (*event_map).output(&ctx, &event, 0);
+    }
+    Ok(0)
+}
+
+#[map]
+static mut READ_EVENTS: PerfEventArray<RawReadEvent> = PerfEventArray::new(0);
+
+#[tracepoint]
+pub fn stalk_read(ctx: TracePointContext) -> u32 {
+    try_stalk_read(ctx).unwrap_or_else(|ret| ret)
+}
+
+fn try_stalk_read(ctx: TracePointContext) -> Result<u32, u32> {
+    let tgid_pid = bpf_get_current_pid_tgid();
+    let pid = (tgid_pid & 0xFFFFFFFF) as u32;
+    let gid = (tgid_pid >> 32) as u32;
+    unsafe {
+        let read_info: *const SysEnterReadInfo = ctx.as_ptr() as *const SysEnterReadInfo;
+        let fd = (*read_info).fd;
+        let count = (*read_info).count;
+        let event = RawReadEvent {
+            pid,
+            gid,
+            fd,
+            count,
+        };
+        let event_map = &raw mut READ_EVENTS;
+        (*event_map).output(&ctx, &event, 0);
+    }
+    Ok(0)
+}
+
+#[map]
+static mut READ_EXIT_EVENTS: PerfEventArray<RawReadEventExit> = PerfEventArray::new(0);
+
+#[tracepoint]
+pub fn stalk_read_exit(ctx: TracePointContext) -> u32 {
+    try_stalk_read_exit(ctx).unwrap_or_else(|ret| ret)
+}
+
+fn try_stalk_read_exit(ctx: TracePointContext) -> Result<u32, u32> {
+    let tgid_pid = bpf_get_current_pid_tgid();
+    let pid = (tgid_pid & 0xFFFFFFFF) as u32;
+    let gid = (tgid_pid >> 32) as u32;
+    unsafe {
+        let read_info: *const SysExitReadInfo = ctx.as_ptr() as *const SysExitReadInfo;
+        let ret = (*read_info).ret;
+        let event = RawReadEventExit { pid, gid, ret };
+        let event_map = &raw mut READ_EXIT_EVENTS;
         (*event_map).output(&ctx, &event, 0);
     }
     Ok(0)

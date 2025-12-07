@@ -1,6 +1,7 @@
 use core::fmt::Display;
 
-use stalk_common::RawExecveEvent;
+use stalk_common::{RawExecveEvent, RawReadEvent};
+use tokio::time::Instant;
 
 #[derive(Debug)]
 pub struct ExecveEvent {
@@ -44,6 +45,28 @@ impl From<RawExecveEvent> for ExecveEvent {
             pid: value.pid,
             filename: filename_str,
             argv: argv_vec,
+        }
+    }
+}
+
+pub struct ReadEvent {
+    raw: RawReadEvent,
+    pub time: Instant,
+}
+impl Display for ReadEvent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "ReadEvent {{ pid: {}, fd: {}, count: {} }}",
+            self.raw.pid, self.raw.fd, self.raw.count
+        )
+    }
+}
+impl From<RawReadEvent> for ReadEvent {
+    fn from(value: RawReadEvent) -> Self {
+        ReadEvent {
+            raw: value,
+            time: Instant::now(),
         }
     }
 }
