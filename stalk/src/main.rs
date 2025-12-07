@@ -4,8 +4,11 @@ use bytes::BytesMut;
 use log::{debug, warn};
 use std::process::exit;
 
+use event::ExecveEvent;
 use stalk_common::RawExecveEvent;
 use tokio::{io::unix::AsyncFd, signal};
+
+mod event;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -77,33 +80,9 @@ async fn main() -> anyhow::Result<()> {
                     for i in 0..events.read {
                         let buf = &buffer[i];
                         let ptr = buf.as_ptr() as *const RawExecveEvent;
-                        let event = unsafe { ptr.read_unaligned() };
-                        let filename_cstr = unsafe {
-                            let len = event
-                                .filename
-                                .iter()
-                                .position(|&c| c == 0)
-                                .unwrap_or(event.filename.len());
-                            std::ffi::CStr::from_bytes_with_nul_unchecked(&event.filename[..=len])
-                        };
-                        let filename_str = filename_cstr.to_string_lossy();
-                        // if !filename_str.contains("ls") {
-                        //     continue;
-                        // }
-                        let mut argv_vec = Vec::new();
-                        for arg in &event.argv {
-                            let len = arg.iter().position(|&c| c == 0).unwrap_or(arg.len());
-                            if len > 0 {
-                                let arg_cstr = unsafe {
-                                    std::ffi::CStr::from_bytes_with_nul_unchecked(&arg[..=len])
-                                };
-                                let arg_str = arg_cstr.to_string_lossy();
-                                argv_vec.push(arg_str.to_string());
-                            }
-                        }
-                        println!("Process execve detected: PID={}", event.pid);
-                        println!("Filename: {}", filename_str);
-                        println!("Arguments: {:?}", argv_vec);
+                        let raw_event = unsafe { ptr.read_unaligned() };
+                        let event: ExecveEvent = raw_event.into();
+                        println!("{}", event);
                     }
                 }
                 Err(e) => {
