@@ -55,3 +55,11 @@ dual licensed as above, without any additional terms or conditions.
 [Apache license]: LICENSE-APACHE
 [MIT license]: LICENSE-MIT
 [GNU General Public License, Version 2]: LICENSE-GPL2
+
+
+## Useful Tips
+
+```shell
+cat /sys/kernel/debug/tracing/events/syscalls/sys_enter_execve/format
+```
+to see the layout of the `sys_enter_execve` tracepoint.

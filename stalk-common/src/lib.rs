@@ -1,10 +1,10 @@
 #![no_std]
 
 #[repr(C)]
-pub struct ProcessEvent {
+pub struct RawExecveEvent {
     pub pid: u32,
-    pub filename: [u8; 32],
-    pub argv: [[u8; 16]; 4],
+    pub filename: [u8; 64],
+    pub argv: [[u8; 32]; 4],
 }
 
 #[repr(C)]

@@ -2,17 +2,17 @@
 #![no_main]
 
 use aya_ebpf::{
+    EbpfContext,
     helpers::bpf_get_current_pid_tgid,
     macros::{map, tracepoint},
     maps::PerfEventArray,
     programs::TracePointContext,
-    EbpfContext,
 };
 use aya_log_ebpf::error;
-use stalk_common::{ProcessEvent, SysEnterExecveInfo};
+use stalk_common::{RawExecveEvent, SysEnterExecveInfo};
 
 #[map]
-static mut EVENTS: PerfEventArray<ProcessEvent> = PerfEventArray::new(0);
+static mut EVENTS: PerfEventArray<RawExecveEvent> = PerfEventArray::new(0);
 
 #[tracepoint]
 pub fn stalk(ctx: TracePointContext) -> u32 {
@@ -22,8 +22,8 @@ pub fn stalk(ctx: TracePointContext) -> u32 {
 fn try_stalk(ctx: TracePointContext) -> Result<u32, u32> {
     let tgid_pid = bpf_get_current_pid_tgid();
     let pid = (tgid_pid & 0xFFFFFFFF) as u32;
-    let mut filename = [0u8; 32];
-    let mut argv: [[u8; 16]; 4] = [[0u8; 16]; 4];
+    let mut filename = [0u8; 64];
+    let mut argv = [[0u8; 32]; 4];
     unsafe {
         let execve_info: *const SysEnterExecveInfo = ctx.as_ptr() as *const SysEnterExecveInfo;
         let filename_ptr = (*execve_info).filename;
@@ -50,7 +50,7 @@ fn try_stalk(ctx: TracePointContext) -> Result<u32, u32> {
             }
         }
     }
-    let event = ProcessEvent {
+    let event = RawExecveEvent {
         pid,
         filename,
         argv,

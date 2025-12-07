@@ -1,12 +1,11 @@
-use aya::maps::PerfEventArray;
-use aya::programs::TracePoint;
+use aya::{maps::PerfEventArray, programs::TracePoint};
 use bytes::BytesMut;
 #[rustfmt::skip]
 use log::{debug, warn};
-use stalk_common::ProcessEvent;
 use std::process::exit;
-use tokio::io::unix::AsyncFd;
-use tokio::signal;
+
+use stalk_common::RawExecveEvent;
+use tokio::{io::unix::AsyncFd, signal};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -37,8 +36,7 @@ async fn main() -> anyhow::Result<()> {
             warn!("failed to initialize eBPF logger: {e}");
         }
         Ok(logger) => {
-            let mut logger =
-                AsyncFd::with_interest(logger, tokio::io::Interest::READABLE)?;
+            let mut logger = AsyncFd::with_interest(logger, tokio::io::Interest::READABLE)?;
             tokio::task::spawn(async move {
                 loop {
                     let mut guard = logger.readable_mut().await.unwrap();
@@ -55,15 +53,16 @@ async fn main() -> anyhow::Result<()> {
     tokio::task::spawn(async move {
         let mut perf_array = PerfEventArray::try_from(ebpf.map_mut("EVENTS").unwrap()).unwrap();
         let array_buf = perf_array.open(0, None).unwrap();
-        let mut async_array_buf = match AsyncFd::with_interest(array_buf, tokio::io::Interest::READABLE) {
-            Ok(buf) => buf,
-            Err(e) => {
-                // 处理错误
-                eprintln!("Failed to create AsyncFd for PerfEventArray: {e}");
-                return;
-            }
-        };
-        let mut buffer = vec![BytesMut::with_capacity(size_of::<ProcessEvent>())];
+        let mut async_array_buf =
+            match AsyncFd::with_interest(array_buf, tokio::io::Interest::READABLE) {
+                Ok(buf) => buf,
+                Err(e) => {
+                    // 处理错误
+                    eprintln!("Failed to create AsyncFd for PerfEventArray: {e}");
+                    return;
+                }
+            };
+        let mut buffer = vec![BytesMut::with_capacity(size_of::<RawExecveEvent>())];
         loop {
             let mut guard = match async_array_buf.readable_mut().await {
                 Ok(guard) => guard,
@@ -77,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
                     guard.clear_ready();
                     for i in 0..events.read {
                         let buf = &buffer[i];
-                        let ptr = buf.as_ptr() as *const ProcessEvent;
+                        let ptr = buf.as_ptr() as *const RawExecveEvent;
                         let event = unsafe { ptr.read_unaligned() };
                         let filename_cstr = unsafe {
                             let len = event
