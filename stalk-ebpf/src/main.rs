@@ -12,14 +12,14 @@ use aya_log_ebpf::error;
 use stalk_common::{RawExecveEvent, SysEnterExecveInfo};
 
 #[map]
-static mut EVENTS: PerfEventArray<RawExecveEvent> = PerfEventArray::new(0);
+static mut EXECVE_EVENTS: PerfEventArray<RawExecveEvent> = PerfEventArray::new(0);
 
 #[tracepoint]
-pub fn stalk(ctx: TracePointContext) -> u32 {
-    try_stalk(ctx).unwrap_or_else(|ret| ret)
+pub fn stalk_execve(ctx: TracePointContext) -> u32 {
+    try_stalk_execve(ctx).unwrap_or_else(|ret| ret)
 }
 
-fn try_stalk(ctx: TracePointContext) -> Result<u32, u32> {
+fn try_stalk_execve(ctx: TracePointContext) -> Result<u32, u32> {
     let tgid_pid = bpf_get_current_pid_tgid();
     let pid = (tgid_pid & 0xFFFFFFFF) as u32;
     let mut filename = [0u8; 64];
@@ -57,7 +57,7 @@ fn try_stalk(ctx: TracePointContext) -> Result<u32, u32> {
     };
 
     unsafe {
-        let event_map = &raw mut EVENTS;
+        let event_map = &raw mut EXECVE_EVENTS;
         (*event_map).output(&ctx, &event, 0);
     }
     Ok(0)

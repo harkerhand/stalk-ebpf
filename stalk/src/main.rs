@@ -49,12 +49,13 @@ async fn main() -> anyhow::Result<()> {
             });
         }
     }
-    let program: &mut TracePoint = ebpf.program_mut("stalk").unwrap().try_into()?;
+    let program: &mut TracePoint = ebpf.program_mut("stalk_execve").unwrap().try_into()?;
     program.load()?;
     program.attach("syscalls", "sys_enter_execve")?;
 
     tokio::task::spawn(async move {
-        let mut perf_array = PerfEventArray::try_from(ebpf.map_mut("EVENTS").unwrap()).unwrap();
+        let mut perf_array =
+            PerfEventArray::try_from(ebpf.map_mut("EXECVE_EVENTS").unwrap()).unwrap();
         let array_buf = perf_array.open(0, None).unwrap();
         let mut async_array_buf =
             match AsyncFd::with_interest(array_buf, tokio::io::Interest::READABLE) {
