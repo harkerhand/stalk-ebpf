@@ -1,7 +1,13 @@
 use core::fmt::Display;
 
-use stalk_common::{RawExecveEvent, RawReadEvent};
+use stalk_common::{RawExecveEvent, RawReadEvent, RawReadEventExit};
 use tokio::time::Instant;
+
+pub trait Event: Display {
+    fn pid(&self) -> u32;
+}
+
+pub trait RawEvent {}
 
 #[derive(Debug)]
 pub struct ExecveEvent {
@@ -17,6 +23,12 @@ impl Display for ExecveEvent {
             "ExecveEvent {{ pid: {}, filename: {}, argv: {:?} }}",
             self.pid, self.filename, self.argv
         )
+    }
+}
+
+impl Event for ExecveEvent {
+    fn pid(&self) -> u32 {
+        self.pid
     }
 }
 
@@ -49,9 +61,11 @@ impl From<RawExecveEvent> for ExecveEvent {
     }
 }
 
+impl RawEvent for RawExecveEvent {}
 pub struct ReadEvent {
     raw: RawReadEvent,
-    pub time: Instant,
+    pub start_time: Instant,
+    pub end_time: Option<Instant>,
 }
 impl Display for ReadEvent {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -62,11 +76,23 @@ impl Display for ReadEvent {
         )
     }
 }
+
+impl Event for ReadEvent {
+    fn pid(&self) -> u32 {
+        self.raw.pid
+    }
+}
+
 impl From<RawReadEvent> for ReadEvent {
     fn from(value: RawReadEvent) -> Self {
         ReadEvent {
             raw: value,
-            time: Instant::now(),
+            start_time: Instant::now(),
+            end_time: None,
         }
     }
 }
+
+impl RawEvent for RawReadEvent {}
+
+impl RawEvent for RawReadEventExit {}
