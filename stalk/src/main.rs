@@ -4,8 +4,8 @@ use bytes::BytesMut;
 use log::{debug, warn};
 use std::{collections::HashMap, process::exit, sync::Arc};
 
-use event::{ExecveEvent, ReadEvent};
-use stalk_common::{RawExecveEvent, RawReadEvent, RawReadEventExit};
+use event::{ExecveEvent, OpenatEvent, ReadEvent};
+use stalk_common::{RawExecveEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit};
 use tokio::{io::unix::AsyncFd, signal, sync::Mutex};
 
 mod event;
@@ -60,6 +60,20 @@ async fn main() -> anyhow::Result<()> {
                     let duration = read_event.start_time.elapsed();
                     println!("{}, duration: {:?}", read_event, duration);
                 }
+                Ok(())
+            },
+        )
+        .await;
+    });
+
+    tokio::task::spawn(async move {
+        let _ = handle_event(
+            "stalk_openat",
+            ["syscalls", "sys_enter_openat"],
+            "OPENAT_EVENTS",
+            async move |raw_event: RawOpenatEvent| {
+                let event: OpenatEvent = raw_event.into();
+                println!("{}", event);
                 Ok(())
             },
         )
