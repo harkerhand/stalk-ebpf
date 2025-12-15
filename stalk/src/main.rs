@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
     init_rlimit()?;
     tokio::task::spawn(async move {
-        let _ = handle_event(
+        let _ = handle_tracepoint(
             "stalk_execve",
             ["syscalls", "sys_enter_execve"],
             "EXECVE_EVENTS",
@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
     let read_event_map = Arc::new(Mutex::new(HashMap::new()));
     let map_clone = read_event_map.clone();
     tokio::task::spawn(async move {
-        let _ = handle_event(
+        let _ = handle_tracepoint(
             "stalk_read",
             ["syscalls", "sys_enter_read"],
             "READ_EVENTS",
@@ -48,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
 
     let map_clone = read_event_map.clone();
     tokio::task::spawn(async move {
-        let _ = handle_event(
+        let _ = handle_tracepoint(
             "stalk_read_exit",
             ["syscalls", "sys_exit_read"],
             "READ_EXIT_EVENTS",
@@ -67,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     tokio::task::spawn(async move {
-        let _ = handle_event(
+        let _ = handle_tracepoint(
             "stalk_openat",
             ["syscalls", "sys_enter_openat"],
             "OPENAT_EVENTS",
@@ -121,7 +121,7 @@ fn init_ebpf(ebpf: &mut aya::Ebpf) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_event<F: event::RawEvent>(
+async fn handle_tracepoint<F: event::RawEvent>(
     program: &str,
     attach_point: [&str; 2],
     event_map: &str,
