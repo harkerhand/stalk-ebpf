@@ -12,13 +12,16 @@ use tokio::{
 };
 
 use crate::{
-    agent::state::{StalkEvent, TuiState},
+    agent::{
+        server::Server,
+        state::{StalkEvent, TuiState},
+    },
     config::{StalkConfig, StalkItem},
     event::{ExecveEvent, OpenatEvent, ReadEvent, XdpEvent},
 };
 pub type EventSender = mpsc::Sender<StalkEvent>;
 
-pub async fn stalk(config: StalkConfig) -> anyhow::Result<()> {
+pub async fn stalk(config: StalkConfig) -> anyhow::Result<Server> {
     let (tx, rx) = mpsc::channel::<StalkEvent>(1024);
     let shared_state = Arc::new(RwLock::new(TuiState {
         start_time: tokio::time::Instant::now(),
@@ -41,9 +44,7 @@ pub async fn stalk(config: StalkConfig) -> anyhow::Result<()> {
             }
         }
     }
-    crate::agent::server::web_server(shared_state, config.port).await?;
-
-    Ok(())
+    crate::agent::server::web_server(shared_state, config.port).await
 }
 
 pub fn stalk_execve(tx: EventSender) {

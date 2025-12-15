@@ -1,5 +1,3 @@
-use std::process::exit;
-
 use log::debug;
 pub mod agent;
 pub mod config;
@@ -14,13 +12,18 @@ async fn main() -> anyhow::Result<()> {
     let cli = config::Cli::parse();
     let config_content = tokio::fs::read_to_string(cli.config_file).await?;
     let config: config::StalkConfig = toml::from_str(&config_content)?;
-    stalk::stalk(config).await?;
-
-    let ctrl_c = tokio::signal::ctrl_c();
+    let server = stalk::stalk(config).await?;
     println!("Waiting for Ctrl-C...");
-    ctrl_c.await?;
-    println!("Exiting...");
-    exit(0);
+    tokio::select! {
+        res = server => {
+            // 正常服务结束
+            res?;
+        }
+        _ = tokio::signal::ctrl_c() => {
+            println!("Exiting...");
+        }
+    }
+    Ok(())
 }
 
 fn init_rlimit() -> anyhow::Result<()> {

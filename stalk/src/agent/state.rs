@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use axum::{extract::State, response::IntoResponse};
 use tokio::sync::{RwLock, mpsc};
 
 use crate::event::{Event, ExecveEvent, OpenatEvent, ReadEvent, XdpEvent};
@@ -78,4 +79,32 @@ impl Default for TuiState {
             start_time: tokio::time::Instant::now(),
         }
     }
+}
+
+pub async fn get_execve_logs(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let logs = shared_state.read().await.execve_logs.clone();
+    Ok(axum::Json(logs))
+}
+
+pub async fn get_read_logs(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let logs = shared_state.read().await.read_logs.clone();
+    Ok(axum::Json(logs))
+}
+
+pub async fn get_openat_logs(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let logs = shared_state.read().await.openat_logs.clone();
+    Ok(axum::Json(logs))
+}
+
+pub async fn get_net_logs(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let logs = shared_state.read().await.net_logs.clone();
+    Ok(axum::Json(logs))
 }

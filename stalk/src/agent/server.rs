@@ -1,17 +1,20 @@
 use std::sync::Arc;
 
-use axum::{extract::State, response::IntoResponse, routing::get};
+use axum::{extract::State, response::IntoResponse, routing::get, serve::Serve};
 use tokio::sync::RwLock;
+pub type Server = Serve<tokio::net::TcpListener, axum::Router, axum::Router>;
 
-use crate::agent::state::TuiState;
+use crate::agent::state::{
+    TuiState, get_execve_logs, get_net_logs, get_openat_logs, get_read_logs,
+};
 
-pub async fn web_server(shared_state: Arc<RwLock<TuiState>>, port: u16) -> anyhow::Result<()> {
+pub async fn web_server(shared_state: Arc<RwLock<TuiState>>, port: u16) -> anyhow::Result<Server> {
     let app = axum::Router::new()
         .route("/state", get(get_state))
-        // .route("/logs/execve", _)
-        // .route("/logs/read", _)
-        // .route("/logs/openat", _)
-        // .route("/logs/net", _);
+        .route("/logs/execve", get(get_execve_logs))
+        .route("/logs/read", get(get_read_logs))
+        .route("/logs/openat", get(get_openat_logs))
+        .route("/logs/net", get(get_net_logs))
         // .route("/rank/execve", _)
         // .route("/rank/read", _)
         // .route("/rank/openat", _)
@@ -19,8 +22,7 @@ pub async fn web_server(shared_state: Arc<RwLock<TuiState>>, port: u16) -> anyho
         .with_state(shared_state);
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    let server = axum::serve(listener, app).await;
-    Ok(())
+    Ok(axum::serve(listener, app))
 }
 
 async fn get_state(

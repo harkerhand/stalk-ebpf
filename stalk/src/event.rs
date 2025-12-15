@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use core::fmt::Display;
 
+use serde::Serialize;
 use stalk_common::{RawExecveEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit, RawXdpEvent};
 use tokio::time::Instant;
 
@@ -14,11 +15,12 @@ pub trait Event: Display {
 
 pub trait RawEvent {}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ExecveEvent {
     pub pid: u32,
     pub filename: String,
     pub argv: Vec<String>,
+    #[serde(skip)]
     pub start_time: Instant,
 }
 
@@ -73,25 +75,31 @@ impl From<RawExecveEvent> for ExecveEvent {
 }
 
 impl RawEvent for RawExecveEvent {}
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ReadEvent {
-    raw: RawReadEvent,
+    pub pid: u32,
+    pub gid: u32,
+    pub fd: u64,
+    pub count: usize,
+    #[serde(skip)]
     pub start_time: Instant,
+    #[serde(skip)]
     pub end_time: Option<Instant>,
 }
+
 impl Display for ReadEvent {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "ReadEvent {{ pid: {}, fd: {}, count: {} }}",
-            self.raw.pid, self.raw.fd, self.raw.count
+            self.pid, self.fd, self.count
         )
     }
 }
 
 impl Event for ReadEvent {
     fn pid(&self) -> u32 {
-        self.raw.pid
+        self.pid
     }
     fn start_time(&self) -> Instant {
         self.start_time
@@ -101,7 +109,10 @@ impl Event for ReadEvent {
 impl From<RawReadEvent> for ReadEvent {
     fn from(value: RawReadEvent) -> Self {
         ReadEvent {
-            raw: value,
+            pid: value.pid,
+            gid: value.gid,
+            fd: value.fd,
+            count: value.count,
             start_time: Instant::now(),
             end_time: None,
         }
@@ -112,12 +123,13 @@ impl RawEvent for RawReadEvent {}
 
 impl RawEvent for RawReadEventExit {}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct OpenatEvent {
     pub pid: u32,
     pub filename: String,
     pub flags: u64,
     pub mode: u32,
+    #[serde(skip)]
     pub start_time: Instant,
 }
 
@@ -164,13 +176,14 @@ impl From<RawOpenatEvent> for OpenatEvent {
 
 impl RawEvent for RawOpenatEvent {}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct XdpEvent {
     pub pid: u32,
     pub source_addr: [u8; 4],
     pub dest_addr: [u8; 4],
     pub source_port: u16,
     pub dest_port: u16,
+    #[serde(skip)]
     pub start_time: Instant,
 }
 
