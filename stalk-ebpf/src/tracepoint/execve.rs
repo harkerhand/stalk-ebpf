@@ -2,14 +2,14 @@ use aya_ebpf::{
     EbpfContext,
     helpers::bpf_get_current_pid_tgid,
     macros::{map, tracepoint},
-    maps::PerfEventArray,
+    maps::RingBuf,
     programs::TracePointContext,
 };
 use aya_log_ebpf::error;
 use stalk_common::{RawExecveEvent, SysEnterExecveInfo};
 
 #[map]
-static mut EXECVE_EVENTS: PerfEventArray<RawExecveEvent> = PerfEventArray::new(0);
+static mut EXECVE_EVENTS: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[tracepoint]
 pub fn stalk_execve(ctx: TracePointContext) -> u32 {
@@ -55,7 +55,10 @@ fn try_stalk_execve(ctx: TracePointContext) -> Result<u32, u32> {
 
     unsafe {
         let event_map = &raw mut EXECVE_EVENTS;
-        (*event_map).output(&ctx, &event, 0);
+        if let Some(mut buf) = (*event_map).reserve::<RawExecveEvent>(0) {
+            buf.write(event);
+            buf.submit(0);
+        }
     }
     Ok(0)
 }

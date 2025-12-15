@@ -2,13 +2,13 @@ use aya_ebpf::{
     EbpfContext,
     helpers::{bpf_get_current_pid_tgid, bpf_probe_read_user_str_bytes},
     macros::{map, tracepoint},
-    maps::PerfEventArray,
+    maps::RingBuf,
     programs::TracePointContext,
 };
 use stalk_common::{RawOpenatEvent, SysEnterOpenatInfo};
 
 #[map]
-static mut OPENAT_EVENTS: PerfEventArray<RawOpenatEvent> = PerfEventArray::new(0);
+static mut OPENAT_EVENTS: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[tracepoint]
 pub fn stalk_openat(ctx: TracePointContext) -> u32 {
@@ -34,7 +34,10 @@ fn try_stalk_openat(ctx: TracePointContext) -> Result<u32, u32> {
             mode,
         };
         let event_map = &raw mut OPENAT_EVENTS;
-        (*event_map).output(&ctx, &event, 0);
+        if let Some(mut buf) = (*event_map).reserve::<RawOpenatEvent>(0) {
+            buf.write(event);
+            buf.submit(0);
+        }
     }
     Ok(0)
 }

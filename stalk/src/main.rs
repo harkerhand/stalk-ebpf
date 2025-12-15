@@ -1,8 +1,7 @@
 use aya::{
-    maps::{PerfEventArray, RingBuf},
+    maps::RingBuf,
     programs::{TracePoint, Xdp, XdpFlags},
 };
-use bytes::BytesMut;
 #[rustfmt::skip]
 use log::{debug, warn};
 use std::{collections::HashMap, process::exit, sync::Arc};
@@ -152,23 +151,20 @@ async fn handle_tracepoint<F: event::RawEvent>(
     let program: &mut TracePoint = ebpf.program_mut(program).unwrap().try_into()?;
     program.load()?;
     program.attach(attach_point[0], attach_point[1])?;
-    let mut perf_array = PerfEventArray::try_from(
+    let ring_buf = RingBuf::try_from(
         ebpf.map_mut(event_map)
             .ok_or(anyhow::anyhow!("Failed to find map {}", event_map))?,
     )?;
-    let array_buf = perf_array.open(0, None)?;
-    let mut async_array_buf = AsyncFd::with_interest(array_buf, tokio::io::Interest::READABLE)?;
-    let mut buffer = vec![BytesMut::with_capacity(size_of::<F>())];
+    let mut async_array_buf = AsyncFd::with_interest(ring_buf, tokio::io::Interest::READABLE)?;
     loop {
         let mut guard = async_array_buf.readable_mut().await?;
-        let events = guard.get_inner_mut().read_events(&mut buffer)?;
-        guard.clear_ready();
-        for i in 0..events.read {
-            let buf = &buffer[i];
-            let ptr = buf.as_ptr() as *const F;
+        let events = guard.get_inner_mut();
+        while let Some(item) = events.next() {
+            let ptr = item.as_ptr() as *const F;
             let raw_event = unsafe { ptr.read_unaligned() };
             func(raw_event).await?;
         }
+        guard.clear_ready();
     }
 }
 
