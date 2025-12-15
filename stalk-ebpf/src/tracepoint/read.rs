@@ -2,13 +2,13 @@ use aya_ebpf::{
     EbpfContext,
     helpers::bpf_get_current_pid_tgid,
     macros::{map, tracepoint},
-    maps::PerfEventArray,
+    maps::RingBuf,
     programs::TracePointContext,
 };
 use stalk_common::{RawReadEvent, SysEnterReadInfo};
 
 #[map]
-static mut READ_EVENTS: PerfEventArray<RawReadEvent> = PerfEventArray::new(0);
+static mut READ_EVENTS: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
 
 #[tracepoint]
 pub fn stalk_read(ctx: TracePointContext) -> u32 {
@@ -30,7 +30,10 @@ fn try_stalk_read(ctx: TracePointContext) -> Result<u32, u32> {
             count,
         };
         let event_map = &raw mut READ_EVENTS;
-        (*event_map).output(&ctx, &event, 0);
+        if let Some(mut buf) = (*event_map).reserve::<RawReadEvent>(0) {
+            buf.write(event);
+            buf.submit(0);
+        }
     }
     Ok(0)
 }

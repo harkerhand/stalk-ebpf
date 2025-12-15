@@ -1,10 +1,15 @@
+#![allow(dead_code)]
 use core::fmt::Display;
 
-use stalk_common::{RawExecveEvent, RawReadEvent, RawReadEventExit};
+use stalk_common::{RawExecveEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit, RawXdpEvent};
 use tokio::time::Instant;
 
 pub trait Event: Display {
     fn pid(&self) -> u32;
+    fn start_time(&self) -> Instant;
+    fn name(&self) -> String {
+        format!("{:?}", core::any::type_name::<Self>())
+    }
 }
 
 pub trait RawEvent {}
@@ -14,6 +19,7 @@ pub struct ExecveEvent {
     pub pid: u32,
     pub filename: String,
     pub argv: Vec<String>,
+    pub start_time: Instant,
 }
 
 impl Display for ExecveEvent {
@@ -30,10 +36,14 @@ impl Event for ExecveEvent {
     fn pid(&self) -> u32 {
         self.pid
     }
+    fn start_time(&self) -> Instant {
+        self.start_time
+    }
 }
 
 impl From<RawExecveEvent> for ExecveEvent {
     fn from(value: RawExecveEvent) -> Self {
+        let start_time = Instant::now();
         let filename_cstr = unsafe {
             let len = value
                 .filename
@@ -57,6 +67,7 @@ impl From<RawExecveEvent> for ExecveEvent {
             pid: value.pid,
             filename: filename_str,
             argv: argv_vec,
+            start_time,
         }
     }
 }
@@ -81,6 +92,9 @@ impl Event for ReadEvent {
     fn pid(&self) -> u32 {
         self.raw.pid
     }
+    fn start_time(&self) -> Instant {
+        self.start_time
+    }
 }
 
 impl From<RawReadEvent> for ReadEvent {
@@ -96,3 +110,107 @@ impl From<RawReadEvent> for ReadEvent {
 impl RawEvent for RawReadEvent {}
 
 impl RawEvent for RawReadEventExit {}
+
+pub struct OpenatEvent {
+    pub pid: u32,
+    pub filename: String,
+    pub flags: u64,
+    pub mode: u32,
+    pub start_time: Instant,
+}
+
+impl Display for OpenatEvent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "OpenatEvent {{ pid: {}, filename: {}, flags: {}, mode: {} }}",
+            self.pid, self.filename, self.flags, self.mode
+        )
+    }
+}
+
+impl Event for OpenatEvent {
+    fn pid(&self) -> u32 {
+        self.pid
+    }
+    fn start_time(&self) -> Instant {
+        self.start_time
+    }
+}
+
+impl From<RawOpenatEvent> for OpenatEvent {
+    fn from(value: RawOpenatEvent) -> Self {
+        let start_time = Instant::now();
+        let filename_cstr = unsafe {
+            let len = value
+                .filename
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(value.filename.len());
+            std::ffi::CStr::from_bytes_with_nul_unchecked(&value.filename[..=len])
+        };
+        let filename_str = filename_cstr.to_string_lossy().to_string();
+        OpenatEvent {
+            pid: value.pid,
+            filename: filename_str,
+            flags: value.flags as u64,
+            mode: value.mode as u32,
+            start_time,
+        }
+    }
+}
+
+impl RawEvent for RawOpenatEvent {}
+
+pub struct XdpEvent {
+    pub pid: u32,
+    pub source_addr: [u8; 4],
+    pub dest_addr: [u8; 4],
+    pub source_port: u16,
+    pub dest_port: u16,
+    pub start_time: Instant,
+}
+
+impl Display for XdpEvent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "XdpEvent {{ source_addr: {}.{}.{}.{}, dest_addr: {}.{}.{}.{}, source_port: {}, dest_port: {} }}",
+            self.source_addr[0],
+            self.source_addr[1],
+            self.source_addr[2],
+            self.source_addr[3],
+            self.dest_addr[0],
+            self.dest_addr[1],
+            self.dest_addr[2],
+            self.dest_addr[3],
+            self.source_port,
+            self.dest_port
+        )
+    }
+}
+
+impl Event for XdpEvent {
+    fn pid(&self) -> u32 {
+        self.pid
+    }
+    fn start_time(&self) -> Instant {
+        self.start_time
+    }
+}
+
+impl From<RawXdpEvent> for XdpEvent {
+    fn from(value: RawXdpEvent) -> Self {
+        let start_time = Instant::now();
+        XdpEvent {
+            pid: value.pid,
+            source_addr: value.source_addr.to_be_bytes(),
+            dest_addr: value.dest_addr.to_be_bytes(),
+            source_port: value.source_port,
+            dest_port: value.dest_port,
+            start_time,
+        }
+    }
+}
+
+impl RawEvent for RawXdpEvent {}

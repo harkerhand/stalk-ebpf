@@ -2,6 +2,7 @@
 #![no_main]
 
 mod tracepoint;
+mod xdp;
 
 #[cfg(not(test))]
 #[panic_handler]
