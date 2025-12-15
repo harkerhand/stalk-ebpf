@@ -1,6 +1,6 @@
 use aya_ebpf::{
     EbpfContext,
-    helpers::bpf_get_current_pid_tgid,
+    helpers::{bpf_get_current_pid_tgid, bpf_probe_read_user_str_bytes},
     macros::{map, tracepoint},
     maps::PerfEventArray,
     programs::TracePointContext,
@@ -23,13 +23,7 @@ fn try_stalk_openat(ctx: TracePointContext) -> Result<u32, u32> {
         let openat_info: *const SysEnterOpenatInfo = ctx.as_ptr() as *const SysEnterOpenatInfo;
         let filename_ptr = (*openat_info).filename;
         let mut filename: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            let byte = *filename_ptr.add(i);
-            filename[i] = byte as u8;
-            if byte == 0 {
-                break;
-            }
-        }
+        let _ = bpf_probe_read_user_str_bytes(filename_ptr as *const u8, &mut filename);
         let flags = (*openat_info).flags;
         let mode = (*openat_info).mode;
         let event = RawOpenatEvent {

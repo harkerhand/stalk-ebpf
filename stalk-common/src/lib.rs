@@ -67,7 +67,7 @@ pub struct RawOpenatEvent {
     pub gid: u32,
     pub filename: [u8; 64],
     pub flags: i64,
-    pub mode: i64,
+    pub mode: u64,
 }
 
 #[repr(C)]
@@ -82,5 +82,5 @@ pub struct SysEnterOpenatInfo {
     pub dfd: i64,
     pub filename: *const core::ffi::c_char,
     pub flags: i64,
-    pub mode: i64,
+    pub mode: u64,
 }

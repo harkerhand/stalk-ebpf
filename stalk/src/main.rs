@@ -139,7 +139,7 @@ async fn handle_event<F: event::RawEvent>(
         ebpf.map_mut(event_map)
             .ok_or(anyhow::anyhow!("Failed to find map {}", event_map))?,
     )?;
-    let array_buf = perf_array.open(0, None).unwrap();
+    let array_buf = perf_array.open(0, None)?;
     let mut async_array_buf = AsyncFd::with_interest(array_buf, tokio::io::Interest::READABLE)?;
     let mut buffer = vec![BytesMut::with_capacity(size_of::<F>())];
     loop {
