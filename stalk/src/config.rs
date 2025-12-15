@@ -17,6 +17,7 @@ pub struct Cli {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StalkConfig {
     pub items: Vec<StalkItem>,
+    pub port: u16,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,6 +41,7 @@ mod tests {
                 StalkItem::Read,
                 StalkItem::Net("eth2".to_string()),
             ],
+            port: 3000,
         };
 
         let toml_str = toml::to_string(&config).unwrap();

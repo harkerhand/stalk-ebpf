@@ -73,6 +73,7 @@ impl From<RawExecveEvent> for ExecveEvent {
 }
 
 impl RawEvent for RawExecveEvent {}
+#[derive(Debug)]
 pub struct ReadEvent {
     raw: RawReadEvent,
     pub start_time: Instant,
@@ -111,6 +112,7 @@ impl RawEvent for RawReadEvent {}
 
 impl RawEvent for RawReadEventExit {}
 
+#[derive(Debug)]
 pub struct OpenatEvent {
     pub pid: u32,
     pub filename: String,
@@ -162,6 +164,7 @@ impl From<RawOpenatEvent> for OpenatEvent {
 
 impl RawEvent for RawOpenatEvent {}
 
+#[derive(Debug)]
 pub struct XdpEvent {
     pub pid: u32,
     pub source_addr: [u8; 4],

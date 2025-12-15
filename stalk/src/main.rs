@@ -1,6 +1,7 @@
 use std::process::exit;
 
 use log::debug;
+pub mod agent;
 pub mod config;
 pub mod event;
 pub mod stalk;
@@ -13,7 +14,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = config::Cli::parse();
     let config_content = tokio::fs::read_to_string(cli.config_file).await?;
     let config: config::StalkConfig = toml::from_str(&config_content)?;
-    stalk::stalk(config.items).await?;
+    stalk::stalk(config).await?;
 
     let ctrl_c = tokio::signal::ctrl_c();
     println!("Waiting for Ctrl-C...");

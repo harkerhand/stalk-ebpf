@@ -6,34 +6,47 @@ use aya::{
 };
 use log::warn;
 use stalk_common::{RawExecveEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit, RawXdpEvent};
-use tokio::{io::unix::AsyncFd, sync::Mutex};
-
-use crate::{
-    config::StalkItem,
-    event::{ExecveEvent, OpenatEvent, ReadEvent, XdpEvent},
+use tokio::{
+    io::unix::AsyncFd,
+    sync::{Mutex, RwLock, mpsc},
 };
 
-pub async fn stalk(items: Vec<StalkItem>) -> anyhow::Result<()> {
-    for item in items {
+use crate::{
+    agent::state::{StalkEvent, TuiState},
+    config::{StalkConfig, StalkItem},
+    event::{ExecveEvent, OpenatEvent, ReadEvent, XdpEvent},
+};
+pub type EventSender = mpsc::Sender<StalkEvent>;
+
+pub async fn stalk(config: StalkConfig) -> anyhow::Result<()> {
+    let (tx, rx) = mpsc::channel::<StalkEvent>(1024);
+    let shared_state = Arc::new(RwLock::new(TuiState {
+        start_time: tokio::time::Instant::now(),
+        ..Default::default()
+    }));
+    crate::agent::state::run_agent(rx, shared_state.clone());
+    for item in config.items {
         match item {
             StalkItem::Execve => {
-                stalk_execve();
+                stalk_execve(tx.clone());
             }
             StalkItem::Openat => {
-                stalk_openat();
+                stalk_openat(tx.clone());
             }
             StalkItem::Read => {
-                stalk_read();
+                stalk_read(tx.clone());
             }
             StalkItem::Net(interface) => {
-                stalk_net(interface);
+                stalk_net(tx.clone(), interface);
             }
         }
     }
+    crate::agent::server::web_server(shared_state, config.port).await?;
+
     Ok(())
 }
 
-pub fn stalk_execve() {
+pub fn stalk_execve(tx: EventSender) {
     tokio::task::spawn(async move {
         let _ = handle_tracepoint(
             "stalk_execve",
@@ -41,7 +54,7 @@ pub fn stalk_execve() {
             "EXECVE_EVENTS",
             async move |raw_event: RawExecveEvent| {
                 let event: ExecveEvent = raw_event.into();
-                println!("{}", event);
+                tx.send(StalkEvent::Execve(event)).await.unwrap();
                 Ok(())
             },
         )
@@ -49,7 +62,7 @@ pub fn stalk_execve() {
     });
 }
 
-pub fn stalk_read() {
+pub fn stalk_read(tx: EventSender) {
     let read_event_map = Arc::new(Mutex::new(HashMap::new()));
     let map_clone = read_event_map.clone();
     tokio::task::spawn(async move {
@@ -79,8 +92,7 @@ pub fn stalk_read() {
                 let mut map = map_clone.lock().await;
                 if let Some(mut read_event) = map.remove(&tpid_gid) {
                     read_event.end_time = Some(tokio::time::Instant::now());
-                    let duration = read_event.start_time.elapsed();
-                    println!("{}, duration: {:?}", read_event, duration);
+                    tx.send(StalkEvent::Read(read_event)).await.unwrap();
                 }
                 Ok(())
             },
@@ -89,7 +101,7 @@ pub fn stalk_read() {
     });
 }
 
-pub fn stalk_openat() {
+pub fn stalk_openat(tx: EventSender) {
     tokio::task::spawn(async move {
         let _ = handle_tracepoint(
             "stalk_openat",
@@ -97,7 +109,7 @@ pub fn stalk_openat() {
             "OPENAT_EVENTS",
             async move |raw_event: RawOpenatEvent| {
                 let event: OpenatEvent = raw_event.into();
-                println!("{}", event);
+                tx.send(StalkEvent::Openat(event)).await.unwrap();
                 Ok(())
             },
         )
@@ -105,7 +117,7 @@ pub fn stalk_openat() {
     });
 }
 
-pub fn stalk_net(interface: String) {
+pub fn stalk_net(tx: EventSender, interface: String) {
     tokio::task::spawn(async move {
         let _ = handle_xdp(
             "stalk_xdp",
@@ -113,7 +125,7 @@ pub fn stalk_net(interface: String) {
             "XDP_EVENTS",
             async move |raw_event: RawXdpEvent| {
                 let event: XdpEvent = raw_event.into();
-                println!("{}", event);
+                tx.send(StalkEvent::Xdp(event)).await.unwrap();
                 Ok(())
             },
         )

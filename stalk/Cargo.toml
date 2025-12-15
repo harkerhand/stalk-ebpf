@@ -28,6 +28,8 @@ bytes = "1.11.0"
 clap = { workspace = true, features = ["derive"] }
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "0.9.8"
+axum = "0.8.7"
+serde_json = "1.0.145"
 [build-dependencies]
 anyhow = { workspace = true }
 aya-build = { workspace = true }

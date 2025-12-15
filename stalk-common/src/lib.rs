@@ -21,6 +21,7 @@ pub struct SysEnterExecveInfo {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct RawReadEvent {
     pub pid: u32,
     pub gid: u32,

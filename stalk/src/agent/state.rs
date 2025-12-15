@@ -1,0 +1,81 @@
+use std::{collections::HashMap, sync::Arc};
+
+use tokio::sync::{RwLock, mpsc};
+
+use crate::event::{Event, ExecveEvent, OpenatEvent, ReadEvent, XdpEvent};
+
+#[derive(Debug)]
+pub enum StalkEvent {
+    Execve(ExecveEvent),
+    Read(ReadEvent),
+    Openat(OpenatEvent),
+    Xdp(XdpEvent),
+}
+
+pub struct TuiState {
+    /// Path -> count
+    pub execve_rank: HashMap<String, usize>,
+    pub execve_logs: Vec<String>,
+    /// Pid -> duration in us
+    pub read_rank: HashMap<u32, u64>,
+    pub read_logs: Vec<String>,
+    /// Path -> count
+    pub openat_rank: HashMap<String, usize>,
+    pub openat_logs: Vec<String>,
+    /// IP -> count
+    pub net_rank: HashMap<[u8; 4], usize>,
+    pub net_logs: Vec<String>,
+    pub start_time: tokio::time::Instant,
+}
+
+fn update_state(state: &mut TuiState, event: StalkEvent) {
+    match event {
+        StalkEvent::Execve(ev) => {
+            *state.execve_rank.entry(ev.filename.clone()).or_insert(0) += 1;
+            state.execve_logs.push(ev.to_string());
+        }
+        StalkEvent::Read(ev) => {
+            let duration = ev
+                .end_time
+                .map(|t| t.duration_since(ev.start_time).as_micros())
+                .unwrap_or_default();
+            *state.read_rank.entry(ev.pid()).or_insert(0) += duration as u64;
+            state.read_logs.push(ev.to_string());
+        }
+        StalkEvent::Openat(ev) => {
+            *state.openat_rank.entry(ev.filename.clone()).or_insert(0) += 1;
+            state.openat_logs.push(ev.to_string());
+        }
+        StalkEvent::Xdp(ev) => {
+            *state.net_rank.entry(ev.source_addr).or_insert(0) += 1;
+            state.net_logs.push(ev.to_string());
+        }
+    }
+}
+
+pub fn run_agent(mut rx: mpsc::Receiver<StalkEvent>, shared_state: Arc<RwLock<TuiState>>) {
+    tokio::task::spawn(async move {
+        loop {
+            if let Some(event) = rx.recv().await {
+                let mut state = shared_state.write().await;
+                update_state(&mut state, event);
+            }
+        }
+    });
+}
+
+impl Default for TuiState {
+    fn default() -> Self {
+        TuiState {
+            execve_rank: HashMap::new(),
+            execve_logs: Vec::new(),
+            read_rank: HashMap::new(),
+            read_logs: Vec::new(),
+            openat_rank: HashMap::new(),
+            openat_logs: Vec::new(),
+            net_rank: HashMap::new(),
+            net_logs: Vec::new(),
+            start_time: tokio::time::Instant::now(),
+        }
+    }
+}
