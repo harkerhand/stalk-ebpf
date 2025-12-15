@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::task::spawn(async move {
         let _ = handle_tracepoint(
             "stalk_execve",
-            ["syscalls", "sys_enter_execve"],
+            ("syscalls", "sys_enter_execve"),
             "EXECVE_EVENTS",
             async move |raw_event: RawExecveEvent| {
                 let event: ExecveEvent = raw_event.into();
@@ -35,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::task::spawn(async move {
         let _ = handle_tracepoint(
             "stalk_read",
-            ["syscalls", "sys_enter_read"],
+            ("syscalls", "sys_enter_read"),
             "READ_EVENTS",
             async move |raw_event: RawReadEvent| {
                 let tpid_gid = ((raw_event.gid as u64) << 32) | (raw_event.pid as u64);
@@ -52,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::task::spawn(async move {
         let _ = handle_tracepoint(
             "stalk_read_exit",
-            ["syscalls", "sys_exit_read"],
+            ("syscalls", "sys_exit_read"),
             "READ_EXIT_EVENTS",
             async move |raw_event: RawReadEventExit| {
                 let tpid_gid = ((raw_event.gid as u64) << 32) | (raw_event.pid as u64);
@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::task::spawn(async move {
         let _ = handle_tracepoint(
             "stalk_openat",
-            ["syscalls", "sys_enter_openat"],
+            ("syscalls", "sys_enter_openat"),
             "OPENAT_EVENTS",
             async move |raw_event: RawOpenatEvent| {
                 let event: OpenatEvent = raw_event.into();
@@ -139,7 +139,7 @@ fn init_ebpf(ebpf: &mut aya::Ebpf) -> anyhow::Result<()> {
 
 async fn handle_tracepoint<F: event::RawEvent>(
     program: &str,
-    attach_point: [&str; 2],
+    attach_point: (&str, &str),
     event_map: &str,
     func: impl AsyncFn(F) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
@@ -150,7 +150,7 @@ async fn handle_tracepoint<F: event::RawEvent>(
     init_ebpf(&mut ebpf)?;
     let program: &mut TracePoint = ebpf.program_mut(program).unwrap().try_into()?;
     program.load()?;
-    program.attach(attach_point[0], attach_point[1])?;
+    program.attach(attach_point.0, attach_point.1)?;
     let ring_buf = RingBuf::try_from(
         ebpf.map_mut(event_map)
             .ok_or(anyhow::anyhow!("Failed to find map {}", event_map))?,
