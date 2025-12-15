@@ -1,10 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
-use axum::{extract::State, response::IntoResponse};
+use axum::{
+    extract::{Query, State},
+    response::IntoResponse,
+};
+use serde::Deserialize;
 use tokio::sync::{RwLock, mpsc};
 
 use crate::event::{Event, ExecveEvent, OpenatEvent, ReadEvent, XdpEvent};
-
 #[derive(Debug)]
 pub enum StalkEvent {
     Execve(ExecveEvent),
@@ -81,30 +84,127 @@ impl Default for TuiState {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct QueryParam {
+    pub num: Option<usize>,
+}
+
 pub async fn get_execve_logs(
     State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
 ) -> anyhow::Result<impl IntoResponse, String> {
-    let logs = shared_state.read().await.execve_logs.clone();
+    let logs = shared_state
+        .read()
+        .await
+        .execve_logs
+        .clone()
+        .into_iter()
+        .take(param.num.unwrap_or(100))
+        .collect::<Vec<_>>();
     Ok(axum::Json(logs))
 }
 
 pub async fn get_read_logs(
     State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
 ) -> anyhow::Result<impl IntoResponse, String> {
-    let logs = shared_state.read().await.read_logs.clone();
+    let logs = shared_state
+        .read()
+        .await
+        .read_logs
+        .clone()
+        .into_iter()
+        .take(param.num.unwrap_or(100))
+        .collect::<Vec<_>>();
     Ok(axum::Json(logs))
 }
 
 pub async fn get_openat_logs(
     State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
 ) -> anyhow::Result<impl IntoResponse, String> {
-    let logs = shared_state.read().await.openat_logs.clone();
+    let logs = shared_state
+        .read()
+        .await
+        .openat_logs
+        .clone()
+        .into_iter()
+        .take(param.num.unwrap_or(100))
+        .collect::<Vec<_>>();
     Ok(axum::Json(logs))
 }
 
 pub async fn get_net_logs(
     State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
 ) -> anyhow::Result<impl IntoResponse, String> {
-    let logs = shared_state.read().await.net_logs.clone();
+    let logs = shared_state
+        .read()
+        .await
+        .net_logs
+        .clone()
+        .into_iter()
+        .take(param.num.unwrap_or(100))
+        .collect::<Vec<_>>();
     Ok(axum::Json(logs))
+}
+
+pub async fn get_execve_rank(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let rank = shared_state.read().await.execve_rank.clone();
+    let mut sorted: Vec<_> = rank.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    Ok(axum::Json(
+        sorted
+            .into_iter()
+            .take(param.num.unwrap_or(10))
+            .collect::<Vec<_>>(),
+    ))
+}
+
+pub async fn get_read_rank(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let rank = shared_state.read().await.read_rank.clone();
+    let mut sorted: Vec<_> = rank.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    Ok(axum::Json(
+        sorted
+            .into_iter()
+            .take(param.num.unwrap_or(10))
+            .collect::<Vec<_>>(),
+    ))
+}
+
+pub async fn get_openat_rank(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let rank = shared_state.read().await.openat_rank.clone();
+    let mut sorted: Vec<_> = rank.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    Ok(axum::Json(
+        sorted
+            .into_iter()
+            .take(param.num.unwrap_or(10))
+            .collect::<Vec<_>>(),
+    ))
+}
+
+pub async fn get_net_rank(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let rank = shared_state.read().await.net_rank.clone();
+    let mut sorted: Vec<_> = rank.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    Ok(axum::Json(
+        sorted
+            .into_iter()
+            .take(param.num.unwrap_or(10))
+            .collect::<Vec<_>>(),
+    ))
 }
