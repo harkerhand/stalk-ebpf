@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use core::fmt::Display;
 
-use stalk_common::{RawExecveEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit};
+use stalk_common::{RawExecveEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit, RawXdpEvent};
 use tokio::time::Instant;
 
 pub trait Event: Display {
@@ -138,7 +138,7 @@ impl Event for OpenatEvent {
     }
 }
 
-impl From<stalk_common::RawOpenatEvent> for OpenatEvent {
+impl From<RawOpenatEvent> for OpenatEvent {
     fn from(value: RawOpenatEvent) -> Self {
         let start_time = Instant::now();
         let filename_cstr = unsafe {
@@ -161,3 +161,56 @@ impl From<stalk_common::RawOpenatEvent> for OpenatEvent {
 }
 
 impl RawEvent for RawOpenatEvent {}
+
+pub struct XdpEvent {
+    pub pid: u32,
+    pub source_addr: [u8; 4],
+    pub dest_addr: [u8; 4],
+    pub source_port: u16,
+    pub dest_port: u16,
+    pub start_time: Instant,
+}
+
+impl Display for XdpEvent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "XdpEvent {{ source_addr: {}.{}.{}.{}, dest_addr: {}.{}.{}.{}, source_port: {}, dest_port: {} }}",
+            self.source_addr[0],
+            self.source_addr[1],
+            self.source_addr[2],
+            self.source_addr[3],
+            self.dest_addr[0],
+            self.dest_addr[1],
+            self.dest_addr[2],
+            self.dest_addr[3],
+            self.source_port,
+            self.dest_port
+        )
+    }
+}
+
+impl Event for XdpEvent {
+    fn pid(&self) -> u32 {
+        self.pid
+    }
+    fn start_time(&self) -> Instant {
+        self.start_time
+    }
+}
+
+impl From<RawXdpEvent> for XdpEvent {
+    fn from(value: RawXdpEvent) -> Self {
+        let start_time = Instant::now();
+        XdpEvent {
+            pid: value.pid,
+            source_addr: value.source_addr.to_be_bytes(),
+            dest_addr: value.dest_addr.to_be_bytes(),
+            source_port: value.source_port,
+            dest_port: value.dest_port,
+            start_time,
+        }
+    }
+}
+
+impl RawEvent for RawXdpEvent {}

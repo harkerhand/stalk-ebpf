@@ -84,3 +84,12 @@ pub struct SysEnterOpenatInfo {
     pub flags: i64,
     pub mode: u64,
 }
+
+#[repr(C)]
+pub struct RawXdpEvent {
+    pub pid: u32,
+    pub source_addr: u32,
+    pub dest_addr: u32,
+    pub source_port: u16,
+    pub dest_port: u16,
+}
