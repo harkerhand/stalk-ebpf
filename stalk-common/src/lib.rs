@@ -94,3 +94,20 @@ pub struct RawXdpEvent {
     pub source_port: u16,
     pub dest_port: u16,
 }
+
+#[repr(C)]
+pub struct RawExitEvent {
+    pub pid: u32,
+    pub error_code: i32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct SysEnterExitGroupInfo {
+    pub common_type: u16,
+    pub common_flags: u8,
+    pub common_preempt_count: u8,
+    pub common_pid: i32,
+    pub syscall_nr: i32,
+    pub error_code: i32,
+}

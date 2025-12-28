@@ -6,17 +6,19 @@ pub type Server = Serve<tokio::net::TcpListener, axum::Router, axum::Router>;
 
 use crate::agent::state::{
     TuiState, get_execve_logs, get_execve_rank, get_net_logs, get_net_rank, get_openat_logs,
-    get_openat_rank, get_read_logs, get_read_rank,
+    get_openat_rank, get_read_logs, get_read_rank, get_exit_logs, get_exit_rank,
 };
 
 pub async fn web_server(shared_state: Arc<RwLock<TuiState>>, port: u16) -> anyhow::Result<Server> {
     let app = axum::Router::new()
         .route("/state", get(get_state))
         .route("/logs/execve", get(get_execve_logs))
+        .route("/logs/exit", get(get_exit_logs))
         .route("/logs/read", get(get_read_logs))
         .route("/logs/openat", get(get_openat_logs))
         .route("/logs/net", get(get_net_logs))
         .route("/rank/execve", get(get_execve_rank))
+        .route("/rank/exit", get(get_exit_rank))
         .route("/rank/read", get(get_read_rank))
         .route("/rank/openat", get(get_openat_rank))
         .route("/rank/net", get(get_net_rank))

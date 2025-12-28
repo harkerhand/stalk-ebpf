@@ -5,7 +5,9 @@ use aya::{
     programs::{TracePoint, Xdp, XdpFlags},
 };
 use log::warn;
-use stalk_common::{RawExecveEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit, RawXdpEvent};
+use stalk_common::{
+    RawExecveEvent, RawExitEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit, RawXdpEvent,
+};
 use tokio::{
     io::unix::AsyncFd,
     sync::{Mutex, RwLock, mpsc},
@@ -17,7 +19,7 @@ use crate::{
         state::{StalkEvent, TuiState},
     },
     config::{StalkConfig, StalkItem},
-    event::{ExecveEvent, OpenatEvent, ReadEvent, XdpEvent},
+    event::{ExecveEvent, ExitEvent, OpenatEvent, ReadEvent, XdpEvent},
 };
 pub type EventSender = mpsc::Sender<StalkEvent>;
 
@@ -32,6 +34,9 @@ pub async fn stalk(config: StalkConfig) -> anyhow::Result<Server> {
         match item {
             StalkItem::Execve => {
                 stalk_execve(tx.clone());
+            }
+            StalkItem::Exit => {
+                stalk_exit(tx.clone());
             }
             StalkItem::Openat => {
                 stalk_openat(tx.clone());
@@ -56,6 +61,22 @@ pub fn stalk_execve(tx: EventSender) {
             async move |raw_event: RawExecveEvent| {
                 let event: ExecveEvent = raw_event.into();
                 tx.send(StalkEvent::Execve(event)).await.unwrap();
+                Ok(())
+            },
+        )
+        .await;
+    });
+}
+
+pub fn stalk_exit(tx: EventSender) {
+    tokio::task::spawn(async move {
+        let _ = handle_tracepoint(
+            "stalk_exit_group",
+            ("syscalls", "sys_enter_exit_group"),
+            "TRACEPOINT_EXIT_EVENTS",
+            async move |raw_event: RawExitEvent| {
+                let event: ExitEvent = raw_event.into();
+                tx.send(StalkEvent::Exit(event)).await.unwrap();
                 Ok(())
             },
         )

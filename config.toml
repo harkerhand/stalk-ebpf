@@ -1,2 +1,3 @@
-items = ["Execve", "Openat", "Read", { Net = "lo" }]
+items = ["Execve", "Openat", "Read", { Net = "lo" }, "Exit"]
 port = 8080
+
