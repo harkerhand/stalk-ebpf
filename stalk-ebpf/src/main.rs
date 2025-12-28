@@ -4,7 +4,6 @@
 mod tracepoint;
 mod xdp;
 
-
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {

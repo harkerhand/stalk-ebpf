@@ -22,7 +22,7 @@ pub struct TuiState {
     pub execve_rank: HashMap<String, usize>,
     pub execve_logs: Vec<String>,
     /// Error code -> count
-    pub exit_rank: HashMap<i32, usize>,
+    pub exit_rank: HashMap<u64, usize>,
     pub exit_logs: Vec<String>,
     /// Pid -> duration in us
     pub read_rank: HashMap<u32, u64>,
@@ -43,7 +43,7 @@ fn update_state(state: &mut TuiState, event: StalkEvent) {
             state.execve_logs.push(ev.to_string());
         }
         StalkEvent::Exit(ev) => {
-            *state.exit_rank.entry(ev.error_code).or_insert(0) += 1;
+            *state.exit_rank.entry(ev.exit_code).or_insert(0) += 1;
             state.exit_logs.push(ev.to_string());
         }
         StalkEvent::Read(ev) => {

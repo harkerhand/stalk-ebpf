@@ -81,7 +81,7 @@ impl RawEvent for RawExecveEvent {}
 #[derive(Debug, Serialize)]
 pub struct ExitEvent {
     pub pid: u32,
-    pub error_code: i32,
+    pub exit_code: u64,
     #[serde(skip)]
     pub start_time: Instant,
 }
@@ -90,8 +90,8 @@ impl Display for ExitEvent {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
-            "ExitEvent {{ pid: {}, error_code: {} }}",
-            self.pid, self.error_code
+            "ExitEvent {{ pid: {}, exit_code: {} }}",
+            self.pid, self.exit_code
         )
     }
 }
@@ -109,7 +109,7 @@ impl From<RawExitEvent> for ExitEvent {
     fn from(value: RawExitEvent) -> Self {
         ExitEvent {
             pid: value.pid,
-            error_code: value.error_code,
+            exit_code: value.exit_code,
             start_time: Instant::now(),
         }
     }

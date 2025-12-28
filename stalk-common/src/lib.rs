@@ -98,7 +98,7 @@ pub struct RawXdpEvent {
 #[repr(C)]
 pub struct RawExitEvent {
     pub pid: u32,
-    pub error_code: i32,
+    pub exit_code: u64,
 }
 
 #[repr(C)]
@@ -109,5 +109,6 @@ pub struct SysEnterExitGroupInfo {
     pub common_preempt_count: u8,
     pub common_pid: i32,
     pub syscall_nr: i32,
-    pub error_code: i32,
+    pub padding: u32,
+    pub error_code: u64,
 }

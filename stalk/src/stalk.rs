@@ -73,7 +73,7 @@ pub fn stalk_exit(tx: EventSender) {
         let _ = handle_tracepoint(
             "stalk_exit_group",
             ("syscalls", "sys_enter_exit_group"),
-            "TRACEPOINT_EXIT_EVENTS",
+            "EXIT_EVENTS",
             async move |raw_event: RawExitEvent| {
                 let event: ExitEvent = raw_event.into();
                 tx.send(StalkEvent::Exit(event)).await.unwrap();
