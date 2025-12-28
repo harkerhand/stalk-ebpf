@@ -23,6 +23,7 @@ pub struct StalkConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum StalkItem {
     Execve,
+    Exit,
     Openat,
     Read,
     Net(String),

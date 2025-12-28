@@ -7,10 +7,11 @@ use axum::{
 use serde::Deserialize;
 use tokio::sync::{RwLock, mpsc};
 
-use crate::event::{Event, ExecveEvent, OpenatEvent, ReadEvent, XdpEvent};
+use crate::event::{Event, ExecveEvent, ExitEvent, OpenatEvent, ReadEvent, XdpEvent};
 #[derive(Debug)]
 pub enum StalkEvent {
     Execve(ExecveEvent),
+    Exit(ExitEvent),
     Read(ReadEvent),
     Openat(OpenatEvent),
     Xdp(XdpEvent),
@@ -20,6 +21,9 @@ pub struct TuiState {
     /// Path -> count
     pub execve_rank: HashMap<String, usize>,
     pub execve_logs: Vec<String>,
+    /// Error code -> count
+    pub exit_rank: HashMap<u64, usize>,
+    pub exit_logs: Vec<String>,
     /// Pid -> duration in us
     pub read_rank: HashMap<u32, u64>,
     pub read_logs: Vec<String>,
@@ -37,6 +41,10 @@ fn update_state(state: &mut TuiState, event: StalkEvent) {
         StalkEvent::Execve(ev) => {
             *state.execve_rank.entry(ev.filename.clone()).or_insert(0) += 1;
             state.execve_logs.push(ev.to_string());
+        }
+        StalkEvent::Exit(ev) => {
+            *state.exit_rank.entry(ev.exit_code).or_insert(0) += 1;
+            state.exit_logs.push(ev.to_string());
         }
         StalkEvent::Read(ev) => {
             let duration = ev
@@ -73,6 +81,8 @@ impl Default for TuiState {
         TuiState {
             execve_rank: HashMap::new(),
             execve_logs: Vec::new(),
+            exit_rank: HashMap::new(),
+            exit_logs: Vec::new(),
             read_rank: HashMap::new(),
             read_logs: Vec::new(),
             openat_rank: HashMap::new(),
@@ -97,6 +107,21 @@ pub async fn get_execve_logs(
         .read()
         .await
         .execve_logs
+        .clone()
+        .into_iter()
+        .take(param.num.unwrap_or(100))
+        .collect::<Vec<_>>();
+    Ok(axum::Json(logs))
+}
+
+pub async fn get_exit_logs(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let logs = shared_state
+        .read()
+        .await
+        .exit_logs
         .clone()
         .into_iter()
         .take(param.num.unwrap_or(100))
@@ -154,6 +179,21 @@ pub async fn get_execve_rank(
     Query(param): Query<QueryParam>,
 ) -> anyhow::Result<impl IntoResponse, String> {
     let rank = shared_state.read().await.execve_rank.clone();
+    let mut sorted: Vec<_> = rank.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    Ok(axum::Json(
+        sorted
+            .into_iter()
+            .take(param.num.unwrap_or(10))
+            .collect::<Vec<_>>(),
+    ))
+}
+
+pub async fn get_exit_rank(
+    State(shared_state): State<Arc<RwLock<TuiState>>>,
+    Query(param): Query<QueryParam>,
+) -> anyhow::Result<impl IntoResponse, String> {
+    let rank = shared_state.read().await.exit_rank.clone();
     let mut sorted: Vec<_> = rank.into_iter().collect();
     sorted.sort_by(|a, b| b.1.cmp(&a.1));
     Ok(axum::Json(

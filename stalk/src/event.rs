@@ -2,7 +2,9 @@
 use core::fmt::Display;
 
 use serde::Serialize;
-use stalk_common::{RawExecveEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit, RawXdpEvent};
+use stalk_common::{
+    RawExecveEvent, RawExitEvent, RawOpenatEvent, RawReadEvent, RawReadEventExit, RawXdpEvent,
+};
 use tokio::time::Instant;
 
 pub trait Event: Display {
@@ -75,6 +77,46 @@ impl From<RawExecveEvent> for ExecveEvent {
 }
 
 impl RawEvent for RawExecveEvent {}
+
+#[derive(Debug, Serialize)]
+pub struct ExitEvent {
+    pub pid: u32,
+    pub exit_code: u64,
+    #[serde(skip)]
+    pub start_time: Instant,
+}
+
+impl Display for ExitEvent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "ExitEvent {{ pid: {}, exit_code: {} }}",
+            self.pid, self.exit_code
+        )
+    }
+}
+
+impl Event for ExitEvent {
+    fn pid(&self) -> u32 {
+        self.pid
+    }
+    fn start_time(&self) -> Instant {
+        self.start_time
+    }
+}
+
+impl From<RawExitEvent> for ExitEvent {
+    fn from(value: RawExitEvent) -> Self {
+        ExitEvent {
+            pid: value.pid,
+            exit_code: value.exit_code,
+            start_time: Instant::now(),
+        }
+    }
+}
+
+impl RawEvent for RawExitEvent {}
+
 #[derive(Debug, Serialize)]
 pub struct ReadEvent {
     pub pid: u32,
